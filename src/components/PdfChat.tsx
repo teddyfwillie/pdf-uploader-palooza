@@ -7,13 +7,18 @@ import { PDFUploader } from './pdf-chat/PDFUploader';
 import { ChatMessages } from './pdf-chat/ChatMessages';
 import { ChatInput } from './pdf-chat/ChatInput';
 import type { PDF, ChatMessage } from '@/types/database';
+import { useToast } from '@/hooks/use-toast';
 
 export const PdfChat = () => {
   const [selectedPdf, setSelectedPdf] = useState<PDF | null>(null);
+  const { toast } = useToast();
 
   const { data: pdfs, isLoading: isPdfsLoading } = useQuery({
     queryKey: ['pdfs'],
     queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
         .from('pdfs')
         .select('*')
@@ -28,6 +33,9 @@ export const PdfChat = () => {
     queryKey: ['messages', selectedPdf?.id],
     queryFn: async () => {
       if (!selectedPdf) return [];
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
@@ -44,12 +52,16 @@ export const PdfChat = () => {
     mutationFn: async (content: string) => {
       if (!selectedPdf) throw new Error('No PDF selected');
       
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) throw new Error('Not authenticated');
+
       const { error: chatError } = await supabase
         .from('chat_messages')
         .insert({
           content,
           pdf_id: selectedPdf.id,
           is_ai: false,
+          user_id: session.session.user.id,
         });
 
       if (chatError) throw chatError;
@@ -73,9 +85,17 @@ export const PdfChat = () => {
           content: answer,
           pdf_id: selectedPdf.id,
           is_ai: true,
+          user_id: session.session.user.id,
         });
 
       if (aiError) throw aiError;
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   });
 

@@ -3,26 +3,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export const PDFUploader: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      alert('Please upload a PDF file');
+      toast({
+        title: 'Error',
+        description: 'Please upload a PDF file',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (file.size > 50 * 1024 * 1024) {
-      alert('File size must be less than 50MB');
+      toast({
+        title: 'Error',
+        description: 'File size must be less than 50MB',
+        variant: 'destructive',
+      });
       return;
     }
 
     setIsUploading(true);
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) throw new Error('Not authenticated');
+
       const fileName = `${crypto.randomUUID()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('pdfs')
@@ -35,12 +48,22 @@ export const PDFUploader: React.FC = () => {
         .insert({
           name: file.name,
           file_path: fileName,
+          user_id: session.session.user.id,
         });
 
       if (dbError) throw dbError;
+
+      toast({
+        title: 'Success',
+        description: 'PDF uploaded successfully',
+      });
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Error uploading file');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Error uploading file',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploading(false);
     }
