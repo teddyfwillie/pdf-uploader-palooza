@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
 import type { ChatMessage } from '@/types/database';
@@ -14,9 +14,15 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   isLoading,
   isPending,
 }) => {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   if (isLoading) {
     return (
-      <div className="flex justify-center">
+      <div className="flex-1 flex justify-center items-center">
         <Loader2 className="animate-spin" />
       </div>
     );
@@ -48,6 +54,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
             </div>
           </div>
         )}
+        <div ref={bottomRef} />
       </div>
     </ScrollArea>
   );

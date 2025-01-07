@@ -6,6 +6,8 @@ import { PDFList } from './pdf-chat/PDFList';
 import { PDFUploader } from './pdf-chat/PDFUploader';
 import { ChatMessages } from './pdf-chat/ChatMessages';
 import { ChatInput } from './pdf-chat/ChatInput';
+import { PDFViewer } from './pdf-chat/PDFViewer';
+import { UserProfile } from './pdf-chat/UserProfile';
 import type { PDF, ChatMessage } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
 
@@ -66,7 +68,6 @@ export const PdfChat = () => {
 
       if (chatError) throw chatError;
 
-      // Call the Supabase Edge Function instead of a regular API endpoint
       const { data, error: functionError } = await supabase.functions.invoke('process-pdf-query', {
         body: {
           pdfId: selectedPdf.id,
@@ -97,46 +98,58 @@ export const PdfChat = () => {
   });
 
   return (
-    <div className="flex h-screen">
-      <div className="w-64 border-r p-4 bg-sidebar">
-        <PDFUploader />
-        <PDFList
-          pdfs={pdfs}
-          isLoading={isPdfsLoading}
-          selectedPdf={selectedPdf}
-          onSelectPdf={setSelectedPdf}
-        />
-      </div>
+    <div className="flex flex-col h-screen bg-background">
+      <UserProfile />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-64 border-r bg-sidebar p-4 flex flex-col">
+          <PDFUploader />
+          <PDFList
+            pdfs={pdfs}
+            isLoading={isPdfsLoading}
+            selectedPdf={selectedPdf}
+            onSelectPdf={setSelectedPdf}
+          />
+        </div>
 
-      <div className="flex-1 flex flex-col">
-        {selectedPdf ? (
-          <>
-            <div className="p-4 border-b">
-              <h2 className="font-semibold">Chat with: {selectedPdf.name}</h2>
+        <div className="flex-1 flex">
+          {selectedPdf ? (
+            <>
+              <div className="flex-1 flex flex-col border-r">
+                <div className="p-4 border-b bg-sidebar">
+                  <h2 className="font-semibold">Chat with: {selectedPdf.name}</h2>
+                </div>
+
+                <ChatMessages
+                  messages={messages}
+                  isLoading={isMessagesLoading}
+                  isPending={sendMessage.isPending}
+                />
+
+                <div className="p-4 border-t bg-sidebar">
+                  <ChatInput
+                    onSendMessage={(message) => sendMessage.mutate(message)}
+                    isPending={sendMessage.isPending}
+                  />
+                </div>
+              </div>
+
+              <div className="w-1/2 flex flex-col">
+                <div className="p-4 border-b bg-sidebar">
+                  <h2 className="font-semibold">PDF Viewer</h2>
+                </div>
+                <PDFViewer pdf={selectedPdf} />
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <Alert>
+                <AlertDescription>
+                  Select a PDF from the sidebar or upload a new one to start chatting
+                </AlertDescription>
+              </Alert>
             </div>
-
-            <ChatMessages
-              messages={messages}
-              isLoading={isMessagesLoading}
-              isPending={sendMessage.isPending}
-            />
-
-            <div className="p-4 border-t">
-              <ChatInput
-                onSendMessage={(message) => sendMessage.mutate(message)}
-                isPending={sendMessage.isPending}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <Alert>
-              <AlertDescription>
-                Select a PDF from the sidebar or upload a new one to start chatting
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
