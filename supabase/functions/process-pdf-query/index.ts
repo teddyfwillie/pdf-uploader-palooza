@@ -8,12 +8,15 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { pdfId, query } = await req.json();
+    console.log('Processing query for PDF:', pdfId);
+    console.log('Query content:', query);
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -22,28 +25,34 @@ serve(async (req) => {
     );
 
     // Get the PDF content
-    const { data: pdf } = await supabaseClient
+    const { data: pdf, error: pdfError } = await supabaseClient
       .from('pdfs')
       .select('*')
       .eq('id', pdfId)
       .single();
 
-    if (!pdf) {
+    if (pdfError || !pdf) {
+      console.error('Error fetching PDF:', pdfError);
       throw new Error('PDF not found');
     }
 
     // Get the PDF file from storage
-    const { data: fileData } = await supabaseClient
+    const { data: fileData, error: storageError } = await supabaseClient
       .storage
       .from('pdfs')
       .download(pdf.file_path);
 
-    if (!fileData) {
+    if (storageError || !fileData) {
+      console.error('Error downloading PDF:', storageError);
       throw new Error('PDF file not found in storage');
     }
 
+    // Convert PDF content to text (simplified for example)
+    const pdfText = `Content from PDF: ${pdf.name}`;
+    console.log('Processing query with OpenAI...');
+
     // Process the PDF content with OpenAI
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
@@ -58,14 +67,27 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `Question about the PDF: ${query}`,
+            content: `Context from PDF: ${pdfText}\n\nQuestion: ${query}`,
           },
         ],
       }),
     });
 
-    const data = await response.json();
-    const answer = data.choices[0].message.content;
+    if (!openAIResponse.ok) {
+      const errorData = await openAIResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error('Failed to process with OpenAI');
+    }
+
+    const openAIData = await openAIResponse.json();
+    console.log('OpenAI response:', openAIData);
+
+    if (!openAIData.choices || !openAIData.choices[0] || !openAIData.choices[0].message) {
+      console.error('Unexpected OpenAI response format:', openAIData);
+      throw new Error('Invalid response from OpenAI');
+    }
+
+    const answer = openAIData.choices[0].message.content;
 
     return new Response(
       JSON.stringify({ answer }),
