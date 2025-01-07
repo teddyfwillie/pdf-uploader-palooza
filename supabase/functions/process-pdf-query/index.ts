@@ -34,6 +34,8 @@ serve(async (req) => {
       throw new Error('PDF not found');
     }
 
+    console.log('Found PDF:', pdf.name);
+
     // Get signed URL for the PDF
     const { data: { signedUrl } } = await supabase
       .storage
@@ -44,10 +46,17 @@ serve(async (req) => {
       throw new Error('Could not generate signed URL for PDF');
     }
 
+    console.log('Generated signed URL for PDF');
+
     // Fetch PDF content
     const pdfResponse = await fetch(signedUrl);
+    if (!pdfResponse.ok) {
+      throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
+    }
+
     const pdfBuffer = await pdfResponse.arrayBuffer();
     const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+    console.log('Successfully converted PDF to base64');
 
     // Process with OpenAI
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -74,17 +83,24 @@ serve(async (req) => {
             content: `Here is the PDF content in base64: ${pdfBase64}\n\nPlease answer this question about the PDF: ${query}`
           }
         ],
+        temperature: 0.7,
+        max_tokens: 500
       }),
     });
 
     if (!openAIResponse.ok) {
-      const error = await openAIResponse.json();
-      console.error('OpenAI API error:', error);
-      throw new Error('Failed to process query with OpenAI');
+      const errorData = await openAIResponse.json();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API error: ${JSON.stringify(errorData)}`);
     }
 
     const openAIData = await openAIResponse.json();
-    console.log('OpenAI response received');
+    console.log('OpenAI response received successfully');
+
+    if (!openAIData.choices?.[0]?.message?.content) {
+      console.error('Unexpected OpenAI response format:', openAIData);
+      throw new Error('Invalid response format from OpenAI');
+    }
 
     const answer = openAIData.choices[0].message.content;
 
@@ -96,7 +112,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in process-pdf-query function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error instanceof Error ? error.stack : undefined
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
