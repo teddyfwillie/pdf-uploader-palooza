@@ -66,23 +66,20 @@ export const PdfChat = () => {
 
       if (chatError) throw chatError;
 
-      const response = await fetch('/api/process-pdf-query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Call the Supabase Edge Function instead of a regular API endpoint
+      const { data, error: functionError } = await supabase.functions.invoke('process-pdf-query', {
+        body: {
           pdfId: selectedPdf.id,
           query: content,
-        }),
+        },
       });
 
-      if (!response.ok) throw new Error('Failed to process query');
-
-      const { answer } = await response.json();
+      if (functionError) throw new Error('Failed to process query');
 
       const { error: aiError } = await supabase
         .from('chat_messages')
         .insert({
-          content: answer,
+          content: data.answer,
           pdf_id: selectedPdf.id,
           is_ai: true,
           user_id: session.session.user.id,
