@@ -23,21 +23,21 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <Loader2 className="animate-spin" />
+        <Loader2 className="animate-spin text-primary" />
       </div>
     );
   }
 
   return (
     <ScrollArea className="flex-1 p-4">
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-3xl mx-auto">
         {messages?.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.is_ai ? 'justify-start' : 'justify-end'}`}
           >
             <div
-              className={`max-w-[80%] p-3 rounded-lg ${
+              className={`max-w-[80%] p-3 rounded-lg shadow-sm ${
                 msg.is_ai
                   ? 'bg-secondary text-secondary-foreground'
                   : 'bg-primary text-primary-foreground'
@@ -49,8 +49,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
         ))}
         {isPending && (
           <div className="flex justify-start">
-            <div className="bg-secondary text-secondary-foreground max-w-[80%] p-3 rounded-lg">
-              <Loader2 className="animate-spin" />
+            <div className="bg-secondary text-secondary-foreground max-w-[80%] p-3 rounded-lg shadow-sm">
+              <Loader2 className="animate-spin h-4 w-4" />
             </div>
           </div>
         )}

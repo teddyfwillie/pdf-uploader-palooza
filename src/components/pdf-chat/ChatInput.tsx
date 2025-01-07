@@ -25,9 +25,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isPending }
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Ask a question about the PDF..."
         disabled={isPending}
+        className="flex-1"
       />
-      <Button type="submit" disabled={isPending}>
-        {isPending ? <Loader2 className="animate-spin" /> : <Send />}
+      <Button type="submit" disabled={isPending} size="icon">
+        {isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4" />
+        )}
       </Button>
     </form>
   );

@@ -113,15 +113,19 @@ export const PdfChat = () => {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <div className="flex justify-between items-center border-b bg-sidebar">
+      {/* Header */}
+      <div className="flex justify-between items-center border-b bg-card p-4">
         <Logo />
-        <div className="p-4">
+        <div className="flex items-center gap-4">
           <ProfileMenu />
         </div>
       </div>
+
+      {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-64 border-r bg-sidebar flex flex-col">
-          <div className="flex-1">
+        {/* Sidebar */}
+        <div className="w-full md:w-64 border-r bg-card flex flex-col overflow-hidden transition-all duration-300 ease-in-out">
+          <div className="flex-1 overflow-auto">
             <PDFUploader />
             <PDFList
               pdfs={pdfs}
@@ -133,20 +137,22 @@ export const PdfChat = () => {
           <div className="p-4 border-t">
             <Button
               variant="ghost"
-              className="w-full justify-start"
+              className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
               onClick={handleSignOut}
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="h-4 w-4" />
               Sign out
             </Button>
           </div>
         </div>
 
-        <div className="flex-1 flex">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {selectedPdf ? (
             <>
-              <div className="flex-1 flex flex-col border-r">
-                <div className="p-4 border-b bg-sidebar">
+              {/* Chat Section */}
+              <div className="flex-1 flex flex-col border-r overflow-hidden">
+                <div className="p-4 border-b bg-card">
                   <h2 className="font-semibold">Chat with: {selectedPdf.name}</h2>
                 </div>
 
@@ -156,7 +162,7 @@ export const PdfChat = () => {
                   isPending={sendMessage.isPending}
                 />
 
-                <div className="p-4 border-t bg-sidebar">
+                <div className="p-4 border-t bg-card">
                   <ChatInput
                     onSendMessage={(message) => sendMessage.mutate(message)}
                     isPending={sendMessage.isPending}
@@ -164,8 +170,9 @@ export const PdfChat = () => {
                 </div>
               </div>
 
-              <div className="w-1/2 flex flex-col">
-                <div className="p-4 border-b bg-sidebar">
+              {/* PDF Viewer Section - Hidden on mobile, visible on md and up */}
+              <div className="hidden md:flex md:w-1/2 flex-col">
+                <div className="p-4 border-b bg-card">
                   <h2 className="font-semibold">PDF Viewer</h2>
                 </div>
                 <PDFViewer pdf={selectedPdf} />

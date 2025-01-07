@@ -1,5 +1,6 @@
 import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
 import type { PDF } from '@/types/database';
 
 interface PDFViewerProps {
@@ -24,7 +25,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdf }) => {
   if (!pdfUrl) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -32,7 +33,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdf }) => {
   return (
     <iframe
       src={pdfUrl}
-      className="w-full h-full"
+      className="w-full h-full bg-background"
       title={pdf.name}
     />
   );
