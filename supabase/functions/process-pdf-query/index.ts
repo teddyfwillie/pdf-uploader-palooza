@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,42 +16,40 @@ serve(async (req) => {
   try {
     const { pdfId, query } = await req.json();
     console.log('Processing query for PDF:', pdfId);
-    console.log('Query content:', query);
+    console.log('Query:', query);
 
     // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get the PDF content
-    const { data: pdf, error: pdfError } = await supabaseClient
+    // Get the PDF content from storage
+    const { data: pdf } = await supabase
       .from('pdfs')
       .select('*')
       .eq('id', pdfId)
       .single();
 
-    if (pdfError || !pdf) {
-      console.error('Error fetching PDF:', pdfError);
+    if (!pdf) {
       throw new Error('PDF not found');
     }
 
-    // Get the PDF file from storage
-    const { data: fileData, error: storageError } = await supabaseClient
+    // Get signed URL for the PDF
+    const { data: { signedUrl } } = await supabase
       .storage
       .from('pdfs')
-      .download(pdf.file_path);
+      .createSignedUrl(pdf.file_path, 60);
 
-    if (storageError || !fileData) {
-      console.error('Error downloading PDF:', storageError);
-      throw new Error('PDF file not found in storage');
+    if (!signedUrl) {
+      throw new Error('Could not generate signed URL for PDF');
     }
 
-    // Convert PDF content to text (simplified for example)
-    const pdfText = `Content from PDF: ${pdf.name}`;
-    console.log('Processing query with OpenAI...');
+    // Fetch PDF content
+    const pdfResponse = await fetch(signedUrl);
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
 
-    // Process the PDF content with OpenAI
+    // Process with OpenAI
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -59,33 +57,28 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that answers questions about PDF documents.',
+            content: 'You are a helpful assistant that answers questions about PDF documents. Analyze the content and provide accurate, relevant responses.'
           },
           {
             role: 'user',
-            content: `Context from PDF: ${pdfText}\n\nQuestion: ${query}`,
-          },
+            content: `Here is the PDF content in base64: ${pdfBase64}\n\nPlease answer this question about the PDF: ${query}`
+          }
         ],
       }),
     });
 
     if (!openAIResponse.ok) {
-      const errorData = await openAIResponse.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error('Failed to process with OpenAI');
+      const error = await openAIResponse.json();
+      console.error('OpenAI API error:', error);
+      throw new Error('Failed to process query with OpenAI');
     }
 
     const openAIData = await openAIResponse.json();
     console.log('OpenAI response:', openAIData);
-
-    if (!openAIData.choices || !openAIData.choices[0] || !openAIData.choices[0].message) {
-      console.error('Unexpected OpenAI response format:', openAIData);
-      throw new Error('Invalid response from OpenAI');
-    }
 
     const answer = openAIData.choices[0].message.content;
 
@@ -93,8 +86,9 @@ serve(async (req) => {
       JSON.stringify({ answer }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
-    console.error('Error processing PDF query:', error);
+    console.error('Error in process-pdf-query function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
