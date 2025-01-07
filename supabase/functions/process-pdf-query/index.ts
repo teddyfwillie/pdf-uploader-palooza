@@ -50,14 +50,20 @@ serve(async (req) => {
     const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
 
     // Process with OpenAI
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not found');
+    }
+
+    console.log('Sending request to OpenAI...');
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -78,7 +84,7 @@ serve(async (req) => {
     }
 
     const openAIData = await openAIResponse.json();
-    console.log('OpenAI response:', openAIData);
+    console.log('OpenAI response received');
 
     const answer = openAIData.choices[0].message.content;
 
