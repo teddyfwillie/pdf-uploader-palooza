@@ -7,9 +7,12 @@ import { PDFUploader } from './pdf-chat/PDFUploader';
 import { ChatMessages } from './pdf-chat/ChatMessages';
 import { ChatInput } from './pdf-chat/ChatInput';
 import { PDFViewer } from './pdf-chat/PDFViewer';
-import { UserProfile } from './pdf-chat/UserProfile';
-import type { PDF, ChatMessage } from '@/types/database';
+import { Logo } from './Logo';
+import { ProfileMenu } from './ProfileMenu';
+import { Button } from './ui/button';
+import { LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { PDF, ChatMessage } from '@/types/database';
 
 export const PdfChat = () => {
   const [selectedPdf, setSelectedPdf] = useState<PDF | null>(null);
@@ -75,7 +78,7 @@ export const PdfChat = () => {
         },
       });
 
-      if (functionError) throw new Error('Failed to process query');
+      if (functionError) throw functionError;
 
       const { error: aiError } = await supabase
         .from('chat_messages')
@@ -97,18 +100,46 @@ export const PdfChat = () => {
     },
   });
 
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
-      <UserProfile />
+      <div className="flex justify-between items-center border-b bg-sidebar">
+        <Logo />
+        <div className="p-4">
+          <ProfileMenu />
+        </div>
+      </div>
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-64 border-r bg-sidebar p-4 flex flex-col">
-          <PDFUploader />
-          <PDFList
-            pdfs={pdfs}
-            isLoading={isPdfsLoading}
-            selectedPdf={selectedPdf}
-            onSelectPdf={setSelectedPdf}
-          />
+        <div className="w-64 border-r bg-sidebar flex flex-col">
+          <div className="flex-1">
+            <PDFUploader />
+            <PDFList
+              pdfs={pdfs}
+              isLoading={isPdfsLoading}
+              selectedPdf={selectedPdf}
+              onSelectPdf={setSelectedPdf}
+            />
+          </div>
+          <div className="p-4 border-t">
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={handleSignOut}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 flex">
