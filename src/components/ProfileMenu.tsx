@@ -14,14 +14,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "./theme-toggle";
 import { EditProfileDialog } from "./EditProfileDialog";
+import { useNavigate } from "react-router-dom";
 
 export const ProfileMenu = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const { data: session, refetch: refetchSession } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
       return data.session;
     },
   });
@@ -33,7 +36,7 @@ export const ProfileMenu = () => {
         .from('profiles')
         .select('*')
         .eq('id', session?.user?.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -42,8 +45,11 @@ export const ProfileMenu = () => {
   });
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate("/auth");
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to sign out. Please try again.",
