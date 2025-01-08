@@ -14,6 +14,21 @@ export const UserProfile = () => {
     },
   });
 
+  const { data: profile } = useQuery({
+    queryKey: ['profile', session?.user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session?.user?.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user?.id,
+  });
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
@@ -25,13 +40,15 @@ export const UserProfile = () => {
       <div className="flex items-center gap-3">
         <Avatar>
           <AvatarFallback>
-            {session.user.email?.[0].toUpperCase()}
+            {profile?.full_name?.[0]?.toUpperCase() || session.user.email?.[0].toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col">
-          <span className="font-medium">{session.user.email}</span>
+          <span className="font-medium">
+            {profile?.full_name || 'Welcome'}
+          </span>
           <span className="text-sm text-muted-foreground">
-            Welcome back!
+            {session.user.email}
           </span>
         </div>
       </div>

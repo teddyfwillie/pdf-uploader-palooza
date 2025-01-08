@@ -13,16 +13,32 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "./theme-toggle";
+import { EditProfileDialog } from "./EditProfileDialog";
 
 export const ProfileMenu = () => {
   const { toast } = useToast();
   
-  const { data: session } = useQuery({
+  const { data: session, refetch: refetchSession } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
       const { data } = await supabase.auth.getSession();
       return data.session;
     },
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile', session?.user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session?.user?.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user?.id,
   });
 
   const handleSignOut = async () => {
@@ -46,7 +62,7 @@ export const ProfileMenu = () => {
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar>
               <AvatarFallback className="bg-primary/10 text-primary">
-                {session.user.email?.[0].toUpperCase()}
+                {profile?.full_name?.[0]?.toUpperCase() || session.user.email?.[0].toUpperCase()}
               </AvatarFallback>
             </Avatar>
           </Button>
@@ -54,9 +70,17 @@ export const ProfileMenu = () => {
         <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{session.user.email}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium leading-none">
+                  {profile?.full_name || 'Set your name'}
+                </p>
+                <EditProfileDialog 
+                  currentName={profile?.full_name || ''} 
+                  onProfileUpdate={() => refetchSession()}
+                />
+              </div>
               <p className="text-xs leading-none text-muted-foreground">
-                {session.user.id}
+                {session.user.email}
               </p>
             </div>
           </DropdownMenuLabel>

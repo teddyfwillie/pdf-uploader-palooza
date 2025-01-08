@@ -29,11 +29,13 @@ const AuthPage = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 dark:bg-gray-900">
+      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Welcome</h2>
-          <p className="mt-2 text-sm text-gray-600">Sign in to your account or create a new one</p>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Sign in to your account or create a new one
+          </p>
         </div>
         <Auth
           supabaseClient={supabase}
@@ -42,19 +44,30 @@ const AuthPage = () => {
             variables: {
               default: {
                 colors: {
-                  brand: '#4F46E5',
-                  brandAccent: '#4338CA',
+                  brand: 'hsl(var(--primary))',
+                  brandAccent: 'hsl(var(--primary))',
                 }
               }
             },
             className: {
               container: 'w-full',
-              button: 'w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-md',
-              input: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500',
-              label: 'block text-sm font-medium text-gray-700 mb-1',
+              button: 'w-full px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary rounded-md',
+              input: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-900 dark:text-white',
+              label: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1',
             }
           }}
           providers={[]}
+          options={{
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            signUpFields: [
+              {
+                name: 'full_name',
+                label: 'Full Name',
+                type: 'text',
+                required: true,
+              },
+            ],
+          }}
         />
       </div>
     </div>
