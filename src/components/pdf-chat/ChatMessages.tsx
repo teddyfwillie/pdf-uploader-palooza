@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Bot, User } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { ChatMessage } from '@/types/database';
-import { cn } from '@/lib/utils';
+import { ChatBubble } from './ChatBubble';
 
 interface ChatMessagesProps {
   messages: ChatMessage[] | null;
@@ -31,45 +31,18 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
   return (
     <ScrollArea className="flex-1 px-4">
-      <div className="max-w-3xl mx-auto space-y-4 py-4">
-        {messages?.map((msg) => (
-          <div
+      <div className="max-w-3xl mx-auto space-y-6 py-4">
+        {messages?.map((msg, index) => (
+          <ChatBubble
             key={msg.id}
-            className={cn(
-              "group relative flex items-start gap-4 px-4",
-              msg.is_ai ? "justify-start" : "justify-end"
-            )}
-          >
-            {msg.is_ai && (
-              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-primary text-primary-foreground shadow">
-                <Bot className="h-4 w-4" />
-              </div>
-            )}
-            <div
-              className={cn(
-                "flex-1 space-y-2 overflow-hidden px-1",
-                msg.is_ai ? "mr-12" : "ml-12"
-              )}
-            >
-              <div className="prose prose-neutral dark:prose-invert">
-                {msg.content}
-              </div>
-            </div>
-            {!msg.is_ai && (
-              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-secondary text-secondary-foreground shadow">
-                <User className="h-4 w-4" />
-              </div>
-            )}
-          </div>
+            content={msg.content}
+            isAI={msg.is_ai}
+            showActions={msg.is_ai && index === messages.length - 1}
+          />
         ))}
         {isPending && (
-          <div className="group relative flex items-start gap-4 px-4">
-            <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-primary text-primary-foreground shadow">
-              <Bot className="h-4 w-4" />
-            </div>
-            <div className="flex-1 space-y-2 overflow-hidden px-1 mr-12">
-              <Loader2 className="h-4 w-4 animate-spin" />
-            </div>
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
         <div ref={bottomRef} />

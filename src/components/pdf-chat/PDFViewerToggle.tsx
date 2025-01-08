@@ -14,7 +14,10 @@ export const PDFViewerToggle = ({ isOpen, onToggle, className }: PDFViewerToggle
       variant="ghost"
       size="icon"
       onClick={onToggle}
-      className={cn("fixed right-4 top-20 z-50 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 md:hidden", className)}
+      className={cn(
+        "fixed right-4 top-20 z-50 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90",
+        className
+      )}
     >
       {isOpen ? <X className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
     </Button>
