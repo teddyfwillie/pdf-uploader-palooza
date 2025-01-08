@@ -29,10 +29,13 @@ export const EditProfileDialog = ({ currentName, onProfileUpdate }: EditProfileD
     setIsLoading(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
       const { error } = await supabase
         .from('profiles')
         .update({ full_name: name })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('id', user.id);
 
       if (error) throw error;
 

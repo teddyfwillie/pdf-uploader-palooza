@@ -8,7 +8,6 @@ const AuthPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -18,7 +17,6 @@ const AuthPage = () => {
 
     checkUser();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         navigate("/");
@@ -57,17 +55,17 @@ const AuthPage = () => {
             }
           }}
           providers={[]}
-          options={{
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            signUpFields: [
-              {
-                name: 'full_name',
-                label: 'Full Name',
-                type: 'text',
-                required: true,
-              },
-            ],
+          view="sign_up"
+          localization={{
+            variables: {
+              sign_up: {
+                email_label: 'Email',
+                password_label: 'Password',
+                button_label: 'Sign up',
+              }
+            }
           }}
+          redirectTo={`${window.location.origin}/auth/callback`}
         />
       </div>
     </div>
