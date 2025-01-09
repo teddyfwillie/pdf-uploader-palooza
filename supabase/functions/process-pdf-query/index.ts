@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,19 +73,19 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', // Using the more efficient model
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that answers questions about PDF documents. Analyze the content and provide accurate, relevant responses.'
+            content: 'You are a helpful assistant that answers questions about PDF documents. Keep your responses concise and focused on the question.'
           },
           {
             role: 'user',
             content: `Here is the PDF content in base64: ${pdfBase64}\n\nPlease answer this question about the PDF: ${query}`
           }
         ],
+        max_tokens: 300, // Limiting response length to reduce token usage
         temperature: 0.7,
-        max_tokens: 500
       }),
     });
 

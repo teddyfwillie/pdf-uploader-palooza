@@ -71,32 +71,50 @@ export const PdfChat = () => {
 
       if (chatError) throw chatError;
 
-      const { data, error: functionError } = await supabase.functions.invoke('process-pdf-query', {
-        body: {
-          pdfId: selectedPdf.id,
-          query: content,
-        },
-      });
-
-      if (functionError) throw functionError;
-
-      const { error: aiError } = await supabase
-        .from('chat_messages')
-        .insert({
-          content: data.answer,
-          pdf_id: selectedPdf.id,
-          is_ai: true,
-          user_id: session.session.user.id,
+      try {
+        const { data, error: functionError } = await supabase.functions.invoke('process-pdf-query', {
+          body: {
+            pdfId: selectedPdf.id,
+            query: content,
+          },
         });
 
-      if (aiError) throw aiError;
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+        if (functionError) throw functionError;
+        if (!data?.answer) throw new Error('No response from AI');
+
+        const { error: aiError } = await supabase
+          .from('chat_messages')
+          .insert({
+            content: data.answer,
+            pdf_id: selectedPdf.id,
+            is_ai: true,
+            user_id: session.session.user.id,
+          });
+
+        if (aiError) throw aiError;
+      } catch (error: any) {
+        // Handle OpenAI specific errors
+        if (error.message?.includes('OpenAI API quota exceeded')) {
+          toast({
+            title: 'AI Service Error',
+            description: 'The AI service is currently unavailable due to quota limits. Please try again later.',
+            variant: 'destructive',
+          });
+        } else if (error.message?.includes('Invalid OpenAI API key')) {
+          toast({
+            title: 'Configuration Error',
+            description: 'There is an issue with the AI service configuration. Please contact support.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: error.message || 'An unexpected error occurred',
+            variant: 'destructive',
+          });
+        }
+        throw error;
+      }
     },
   });
 
