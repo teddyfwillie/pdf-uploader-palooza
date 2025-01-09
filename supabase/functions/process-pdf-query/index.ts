@@ -61,7 +61,7 @@ serve(async (req) => {
     // Process with OpenAI
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      throw new Error('OpenAI API key not found');
+      throw new Error('OpenAI API key not configured');
     }
 
     console.log('Sending request to OpenAI...');
@@ -91,7 +91,15 @@ serve(async (req) => {
     if (!openAIResponse.ok) {
       const errorData = await openAIResponse.json();
       console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${JSON.stringify(errorData)}`);
+      
+      // Handle specific OpenAI error cases
+      if (errorData.error?.code === 'insufficient_quota') {
+        throw new Error('OpenAI API quota exceeded. Please check your billing details or contact support.');
+      } else if (errorData.error?.code === 'invalid_api_key') {
+        throw new Error('Invalid OpenAI API key. Please check your API key configuration.');
+      } else {
+        throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error occurred'}`);
+      }
     }
 
     const openAIData = await openAIResponse.json();
