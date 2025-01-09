@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,7 +72,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Using the more efficient model
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -84,7 +83,7 @@ serve(async (req) => {
             content: `Here is the PDF content in base64: ${pdfBase64}\n\nPlease answer this question about the PDF: ${query}`
           }
         ],
-        max_tokens: 300, // Limiting response length to reduce token usage
+        max_tokens: 300,
         temperature: 0.7,
       }),
     });
@@ -92,15 +91,7 @@ serve(async (req) => {
     if (!openAIResponse.ok) {
       const errorData = await openAIResponse.json();
       console.error('OpenAI API error:', errorData);
-      
-      // Handle specific OpenAI error cases
-      if (errorData.error?.code === 'insufficient_quota') {
-        throw new Error('OpenAI API quota exceeded. Please check your billing details or contact support.');
-      } else if (errorData.error?.code === 'invalid_api_key') {
-        throw new Error('Invalid OpenAI API key. Please check your API key configuration.');
-      } else {
-        throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error occurred'}`);
-      }
+      throw new Error(errorData.error?.message || 'Error processing request with OpenAI');
     }
 
     const openAIData = await openAIResponse.json();
