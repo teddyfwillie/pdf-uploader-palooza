@@ -1,11 +1,58 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as pdfjs from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Function to extract text from PDF
+async function extractTextFromPdf(pdfData: ArrayBuffer): Promise<string> {
+  const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+  let fullText = '';
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map((item: any) => item.str).join(' ');
+    fullText += pageText + ' ';
+  }
+  
+  return fullText.trim();
+}
+
+// Function to split text into chunks
+function splitIntoChunks(text: string, maxChunkLength = 3000): string[] {
+  const chunks: string[] = [];
+  const sentences = text.split(/[.!?]+\s+/);
+  let currentChunk = '';
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChunkLength) {
+      if (currentChunk) chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += (currentChunk ? ' ' : '') + sentence;
+    }
+  }
+
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks;
+}
+
+// Function to find most relevant chunks
+function findRelevantChunks(chunks: string[], query: string, maxChunks = 3): string[] {
+  return chunks
+    .map(chunk => ({
+      chunk,
+      relevance: [...chunk.toLowerCase().matchAll(query.toLowerCase())].length,
+    }))
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, maxChunks)
+    .map(item => item.chunk);
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -46,8 +93,6 @@ serve(async (req) => {
       throw new Error('Could not generate signed URL for PDF');
     }
 
-    console.log('Generated signed URL for PDF');
-
     // Fetch PDF content
     const pdfResponse = await fetch(signedUrl);
     if (!pdfResponse.ok) {
@@ -55,8 +100,19 @@ serve(async (req) => {
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
-    console.log('Successfully converted PDF to base64');
+    
+    // Extract text from PDF
+    console.log('Extracting text from PDF...');
+    const pdfText = await extractTextFromPdf(pdfBuffer);
+    
+    // Split into chunks and find relevant ones
+    console.log('Processing text chunks...');
+    const chunks = splitIntoChunks(pdfText);
+    const relevantChunks = findRelevantChunks(chunks, query);
+    
+    // Prepare context for OpenAI
+    const context = relevantChunks.join('\n\n');
+    console.log('Selected relevant chunks for processing');
 
     // Process with OpenAI
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -72,7 +128,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',  // Changed to gpt-3.5-turbo
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
@@ -80,7 +136,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `Here is the PDF content in base64: ${pdfBase64}\n\nPlease answer this question about the PDF: ${query}`
+            content: `Here is the relevant content from the PDF:\n\n${context}\n\nPlease answer this question about the PDF: ${query}`
           }
         ],
         max_tokens: 300,
