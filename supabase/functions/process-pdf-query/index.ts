@@ -1,16 +1,20 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as pdfjs from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm';
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Initialize PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+
 // Function to extract text from PDF
 async function extractTextFromPdf(pdfData: ArrayBuffer): Promise<string> {
-  const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+  const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+  const pdf = await loadingTask.promise;
   let fullText = '';
   
   for (let i = 1; i <= pdf.numPages; i++) {
