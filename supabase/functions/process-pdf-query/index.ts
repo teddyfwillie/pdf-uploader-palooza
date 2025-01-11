@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm';
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,25 +9,28 @@ const corsHeaders = {
 };
 
 // Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-// Function to extract text from PDF
 async function extractTextFromPdf(pdfData: ArrayBuffer): Promise<string> {
-  const loadingTask = pdfjsLib.getDocument({ data: pdfData });
-  const pdf = await loadingTask.promise;
-  let fullText = '';
-  
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-    fullText += pageText + ' ';
+  try {
+    const loadingTask = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    const pdf = await loadingTask;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + ' ';
+    }
+    
+    return fullText.trim();
+  } catch (error) {
+    console.error('Error extracting text from PDF:', error);
+    throw error;
   }
-  
-  return fullText.trim();
 }
 
-// Function to split text into chunks
 function splitIntoChunks(text: string, maxChunkLength = 3000): string[] {
   const chunks: string[] = [];
   const sentences = text.split(/[.!?]+\s+/);
@@ -46,7 +49,6 @@ function splitIntoChunks(text: string, maxChunkLength = 3000): string[] {
   return chunks;
 }
 
-// Function to find most relevant chunks
 function findRelevantChunks(chunks: string[], query: string, maxChunks = 3): string[] {
   return chunks
     .map(chunk => ({
@@ -61,7 +63,9 @@ function findRelevantChunks(chunks: string[], query: string, maxChunks = 3): str
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: { ...corsHeaders }
+    });
   }
 
   try {
@@ -87,27 +91,20 @@ serve(async (req) => {
 
     console.log('Found PDF:', pdf.name);
 
-    // Get signed URL for the PDF
-    const { data: { signedUrl } } = await supabase
+    // Get the PDF file from storage
+    const { data: pdfData, error: storageError } = await supabase
       .storage
       .from('pdfs')
-      .createSignedUrl(pdf.file_path, 60);
+      .download(pdf.file_path);
 
-    if (!signedUrl) {
-      throw new Error('Could not generate signed URL for PDF');
+    if (storageError || !pdfData) {
+      console.error('Storage error:', storageError);
+      throw new Error('Could not download PDF');
     }
 
-    // Fetch PDF content
-    const pdfResponse = await fetch(signedUrl);
-    if (!pdfResponse.ok) {
-      throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
-    }
-
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    
     // Extract text from PDF
     console.log('Extracting text from PDF...');
-    const pdfText = await extractTextFromPdf(pdfBuffer);
+    const pdfText = await extractTextFromPdf(await pdfData.arrayBuffer());
     
     // Split into chunks and find relevant ones
     console.log('Processing text chunks...');
@@ -157,16 +154,14 @@ serve(async (req) => {
     const openAIData = await openAIResponse.json();
     console.log('OpenAI response received successfully');
 
-    if (!openAIData.choices?.[0]?.message?.content) {
-      console.error('Unexpected OpenAI response format:', openAIData);
-      throw new Error('Invalid response format from OpenAI');
-    }
-
-    const answer = openAIData.choices[0].message.content;
-
     return new Response(
-      JSON.stringify({ answer }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ answer: openAIData.choices[0].message.content }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        } 
+      }
     );
 
   } catch (error) {
@@ -178,7 +173,10 @@ serve(async (req) => {
       }),
       { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
   }
