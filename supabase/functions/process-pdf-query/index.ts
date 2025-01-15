@@ -6,6 +6,7 @@ import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 // Initialize PDF.js worker
@@ -67,7 +68,8 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
-      headers: { ...corsHeaders }
+      status: 200, // Ensure OPTIONS returns 200
+      headers: corsHeaders 
     });
   }
 
@@ -94,7 +96,13 @@ serve(async (req) => {
       .single();
 
     if (!pdf) {
-      throw new Error('PDF not found');
+      return new Response(
+        JSON.stringify({ error: 'PDF not found' }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     console.log('Found PDF:', pdf.name);
@@ -107,7 +115,13 @@ serve(async (req) => {
 
     if (storageError || !pdfData) {
       console.error('Storage error:', storageError);
-      throw new Error('Could not download PDF');
+      return new Response(
+        JSON.stringify({ error: 'Could not download PDF', details: storageError }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Extract text from PDF
@@ -151,7 +165,13 @@ serve(async (req) => {
     if (!openAIResponse.ok) {
       const errorData = await openAIResponse.json();
       console.error('OpenAI API error:', errorData);
-      throw new Error(errorData.error?.message || 'Error processing request with OpenAI');
+      return new Response(
+        JSON.stringify({ error: 'Error processing request with OpenAI', details: errorData }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const openAIData = await openAIResponse.json();
