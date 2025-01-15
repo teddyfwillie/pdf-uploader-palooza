@@ -13,21 +13,24 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dis
 
 async function extractTextFromPdf(pdfData: ArrayBuffer): Promise<string> {
   try {
+    console.log('Starting PDF text extraction...');
     const loadingTask = await pdfjsLib.getDocument({ data: pdfData }).promise;
     const pdf = await loadingTask;
     let fullText = '';
     
     for (let i = 1; i <= pdf.numPages; i++) {
+      console.log(`Processing page ${i} of ${pdf.numPages}`);
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(' ');
       fullText += pageText + ' ';
     }
     
+    console.log('PDF text extraction completed successfully');
     return fullText.trim();
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
-    throw error;
+    throw new Error(`Failed to extract text from PDF: ${error.message}`);
   }
 }
 
@@ -69,6 +72,11 @@ serve(async (req) => {
   }
 
   try {
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
     const { pdfId, query } = await req.json();
     console.log('Processing query for PDF:', pdfId);
     console.log('Query:', query);
@@ -116,11 +124,6 @@ serve(async (req) => {
     console.log('Selected relevant chunks for processing');
 
     // Process with OpenAI
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
     console.log('Sending request to OpenAI...');
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -129,7 +132,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
