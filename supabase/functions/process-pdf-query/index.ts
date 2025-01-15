@@ -68,7 +68,7 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
-      status: 200, // Ensure OPTIONS returns 200
+      status: 200,
       headers: corsHeaders 
     });
   }
@@ -76,10 +76,26 @@ serve(async (req) => {
   try {
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const { pdfId, query } = await req.json();
+    if (!pdfId || !query) {
+      return new Response(
+        JSON.stringify({ error: 'PDF ID and query are required' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     console.log('Processing query for PDF:', pdfId);
     console.log('Query:', query);
 
