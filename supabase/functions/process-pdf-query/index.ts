@@ -9,7 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 async function extractTextFromPdf(pdfData: ArrayBuffer): Promise<string> {
@@ -76,24 +75,12 @@ serve(async (req) => {
   try {
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      throw new Error('OpenAI API key not configured');
     }
 
     const { pdfId, query } = await req.json();
     if (!pdfId || !query) {
-      return new Response(
-        JSON.stringify({ error: 'PDF ID and query are required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      throw new Error('PDF ID and query are required');
     }
 
     console.log('Processing query for PDF:', pdfId);
@@ -112,13 +99,7 @@ serve(async (req) => {
       .single();
 
     if (!pdf) {
-      return new Response(
-        JSON.stringify({ error: 'PDF not found' }),
-        { 
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      throw new Error('PDF not found');
     }
 
     console.log('Found PDF:', pdf.name);
@@ -131,13 +112,7 @@ serve(async (req) => {
 
     if (storageError || !pdfData) {
       console.error('Storage error:', storageError);
-      return new Response(
-        JSON.stringify({ error: 'Could not download PDF', details: storageError }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      throw new Error('Could not download PDF');
     }
 
     // Extract text from PDF
@@ -162,7 +137,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
@@ -181,13 +156,7 @@ serve(async (req) => {
     if (!openAIResponse.ok) {
       const errorData = await openAIResponse.json();
       console.error('OpenAI API error:', errorData);
-      return new Response(
-        JSON.stringify({ error: 'Error processing request with OpenAI', details: errorData }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      throw new Error(`Error processing request with OpenAI: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const openAIData = await openAIResponse.json();
