@@ -63,6 +63,65 @@ function findRelevantChunks(chunks: string[], query: string, maxChunks = 3): str
     .map(item => item.chunk);
 }
 
+async function generateGeminiResponse(context: string, query: string) {
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('Gemini API key not configured');
+  }
+
+  const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: `Context from PDF:\n${context}\n\nQuestion: ${query}\n\nPlease provide a concise and relevant answer based on the context provided.`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Gemini API error:', error);
+    throw new Error(`Error from Gemini API: ${error.error?.message || 'Unknown error'}`);
+  }
+
+  const data = await response.json();
+  if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+    throw new Error('No response generated from Gemini');
+  }
+
+  return data.candidates[0].content.parts[0].text;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -73,11 +132,6 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
     const { pdfId, query } = await req.json();
     if (!pdfId || !query) {
       throw new Error('PDF ID and query are required');
@@ -124,46 +178,17 @@ serve(async (req) => {
     const chunks = splitIntoChunks(pdfText);
     const relevantChunks = findRelevantChunks(chunks, query);
     
-    // Prepare context for OpenAI
+    // Prepare context for Gemini
     const context = relevantChunks.join('\n\n');
     console.log('Selected relevant chunks for processing');
 
-    // Process with OpenAI
-    console.log('Sending request to OpenAI...');
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful assistant that answers questions about PDF documents. Keep your responses concise and focused on the question.'
-          },
-          {
-            role: 'user',
-            content: `Here is the relevant content from the PDF:\n\n${context}\n\nPlease answer this question about the PDF: ${query}`
-          }
-        ],
-        max_tokens: 300,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!openAIResponse.ok) {
-      const errorData = await openAIResponse.json();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`Error processing request with OpenAI: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const openAIData = await openAIResponse.json();
-    console.log('OpenAI response received successfully');
+    // Process with Gemini
+    console.log('Sending request to Gemini...');
+    const answer = await generateGeminiResponse(context, query);
+    console.log('Gemini response received successfully');
 
     return new Response(
-      JSON.stringify({ answer: openAIData.choices[0].message.content }),
+      JSON.stringify({ answer }),
       { 
         headers: { 
           ...corsHeaders,
