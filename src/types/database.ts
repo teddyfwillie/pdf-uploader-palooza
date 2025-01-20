@@ -9,9 +9,15 @@ export interface PDF {
 
 export interface ChatMessage {
   id: string;
-  pdf_id: string;
+  pdf_id: string | null;
   user_id: string;
   content: string;
   is_ai: boolean;
   created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  full_name: string | null;
+  updated_at: string | null;
 }
